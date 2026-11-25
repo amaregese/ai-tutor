@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Voice Tutor with Solana Learning Badges
 
-## Getting Started
+An AI-powered learning application that combines spoken lessons, an AI tutor Q&A interface, and blockchain-verifiable learning achievements on Solana Devnet.
 
-First, run the development server:
+## Features
+
+- **AI-powered lesson content** — Interactive lesson on Artificial Intelligence with spoken narration
+- **ElevenLabs text-to-speech** — High-quality voice narration of lesson content using the Sarah voice
+- **Gemini AI tutor** — Ask questions about the lesson and receive answers based on the supplied lesson material
+- **Phantom wallet connection** — Connect your Phantom wallet to authenticate and sign transactions
+- **Solana Devnet learning badges** — Earn a blockchain-recorded Memo transaction as a learning achievement (not an NFT or SPL token)
+
+## Technology Stack
+
+- **Next.js 16** — React framework with App Router
+- **React 19** — UI library
+- **TypeScript** — Type-safe JavaScript
+- **Google Gemini** — Generative AI for tutor Q&A
+- **ElevenLabs** — Text-to-speech API for spoken lessons
+- **Solana Devnet** — Blockchain for learning badge transactions
+- **Phantom** — Browser wallet for Solana transactions
+
+## Prerequisites
+
+- Node.js and npm installed
+- Phantom browser extension installed
+- Devnet SOL in your Phantom wallet (for badge transaction fees)
+- API keys for Gemini and ElevenLabs
+
+## Installation
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd ai-tutor
+
+# Install dependencies
+npm install
+
+# Configure environment variables
+cp .env.example .env.local  # or create .env.local manually
+# Add your API keys to .env.local (see Environment Variables section)
+
+# Start the development server
+npm run dev
+
+# Open http://localhost:3000 in your browser
+```
+
+## Environment Variables
+
+Create a `.env.local` file in the project root with the following variables (replace placeholder values with your actual keys):
+
+```
+GEMINI_API_KEY=your_gemini_api_key_here
+ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
+ELEVENLABS_VOICE_ID=your_elevenlabs_voice_id_here
+```
+
+Never commit `.env.local` to version control. It is already excluded via `.gitignore`.
+
+## Run Locally
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Solana Devnet Learning Badges
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+When you click "Earn Badge," the application submits a Memo transaction to Solana Devnet containing the lesson name and achievement text. This transaction is cryptographically signed by your Phantom wallet and recorded on the Devnet blockchain.
 
-## Learn More
+**Important:** This is a Memo transaction only — it is **not** an NFT, SPL token, or any other tradable asset. It serves as a verifiable record that you completed the lesson.
 
-To learn more about Next.js, take a look at the following resources:
+## License
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

@@ -1,69 +1,239 @@
-import Image from "next/image";
+"use client";
+import { useState } from "react";
+import ConnectWallet from "./components/ConnectWallet";
+import LessonBadge from "./components/LessonBadge";
+
+const LESSON_TITLE = "Introduction to Artificial Intelligence";
+
+const LESSON_TEXT =
+  "Artificial Intelligence, or AI, is the ability of computers to perform tasks that normally require human intelligence. These tasks include learning, understanding language, recognizing images, and solving problems. AI systems learn patterns from data and use those patterns to make predictions or decisions.";
 
 export default function Home() {
+  const [lessonContent] = useState(LESSON_TEXT);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isAsking, setIsAsking] = useState(false);
+  const [question, setQuestion] = useState("");
+  const [tutorResponse, setTutorResponse] = useState("");
+  const [askError, setAskError] = useState("");
+
+  async function speak(text: string) {
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/speak", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        alert(body?.error ?? "Something went wrong");
+        return;
+      }
+      const blob = await res.blob();
+      new Audio(URL.createObjectURL(blob)).play();
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function askQuestion() {
+    if (!question.trim()) {
+      setAskError("Please type a question before asking.");
+      return;
+    }
+    setAskError("");
+    setIsAsking(true);
+    try {
+      const res = await fetch("/api/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: question.trim(),
+          lessonTitle: LESSON_TITLE,
+          lessonText: LESSON_TEXT,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setAskError(body?.error ?? "Failed to get a response from the tutor.");
+        return;
+      }
+      const data = await res.json();
+      setTutorResponse(data.answer ?? "No answer received.");
+    } catch {
+      setAskError("Something went wrong. Please try again.");
+    } finally {
+      setIsAsking(false);
+    }
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <main
+      style={{
+        minHeight: "100vh",
+        backgroundColor: "#ffffff",
+        color: "#1e293b",
+        fontFamily:
+          "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        lineHeight: 1.6,
+        colorScheme: "light",
+        padding: 0,
+        margin: 0,
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 720,
+          margin: "0 auto",
+          padding: "40px 20px",
+        }}
+      >
+        <section
+          style={{
+            backgroundColor: "#ffffff",
+            border: "1px solid #e2e8f0",
+            borderRadius: 16,
+            padding: 32,
+            marginBottom: 40,
+            boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+          }}
+        >
+          <h1
+            style={{
+              fontSize: 28,
+              fontWeight: 700,
+              marginBottom: 16,
+              color: "#0f172a",
+              letterSpacing: "-0.02em",
+            }}
+          >
+            {LESSON_TITLE}
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p
+            style={{
+              fontSize: 17,
+              color: "#334155",
+              whiteSpace: "pre-wrap",
+              marginBottom: 24,
+            }}
+          >
+            {lessonContent}
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            onClick={() => speak(lessonContent)}
+            disabled={isLoading}
+            style={{
+              padding: "12px 24px",
+              fontSize: 16,
+              fontWeight: 600,
+              cursor: isLoading ? "not-allowed" : "pointer",
+              backgroundColor: isLoading ? "#cbd5e1" : "#2563eb",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: 10,
+              opacity: isLoading ? 0.6 : 1,
+              transition: "background-color 0.2s, transform 0.1s",
+              boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+            }}
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            {isLoading ? "Generating audio…" : "Hear the tutor"}
+          </button>
+        </section>
+
+        <section
+          style={{
+            backgroundColor: "#ffffff",
+            border: "1px solid #e2e8f0",
+            borderRadius: 16,
+            padding: 32,
+            boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+          }}
+        >
+          <h2
+            style={{
+              fontSize: 22,
+              fontWeight: 700,
+              marginBottom: 20,
+              color: "#0f172a",
+              letterSpacing: "-0.01em",
+            }}
           >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+            Ask your AI Tutor
+          </h2>
+          <textarea
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            placeholder="Type your question about the lesson…"
+            style={{
+              width: "100%",
+              minHeight: 140,
+              padding: 14,
+              fontSize: 16,
+              fontFamily: "inherit",
+              border: "1px solid #cbd5e1",
+              borderRadius: 10,
+              resize: "vertical",
+              marginBottom: 16,
+              backgroundColor: "#ffffff",
+              color: "#1e293b",
+              boxShadow: "inset 0 1px 2px 0 rgb(0 0 0 / 0.05)",
+              transition: "border-color 0.2s",
+            }}
+          />
+          <button
+            onClick={askQuestion}
+            disabled={isAsking}
+            style={{
+              padding: "12px 24px",
+              fontSize: 16,
+              fontWeight: 600,
+              cursor: isAsking ? "not-allowed" : "pointer",
+              backgroundColor: isAsking ? "#94a3b8" : "#2563eb",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: 10,
+              opacity: isAsking ? 0.6 : 1,
+              transition: "background-color 0.2s, transform 0.1s",
+              boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+            }}
+          >
+            {isAsking ? "Asking…" : "Ask question"}
+          </button>
+          {askError && (
+            <div
+              style={{
+                marginTop: 12,
+                padding: 10,
+                backgroundColor: "#fef2f2",
+                border: "1px solid #fecaca",
+                borderRadius: 8,
+                color: "#dc2626",
+                fontSize: 14,
+                fontWeight: 500,
+              }}
+            >
+              {askError}
+            </div>
+          )}
+          <div
+            style={{
+              marginTop: 20,
+              padding: 16,
+              backgroundColor: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              borderRadius: 10,
+              minHeight: 80,
+              color: "#475569",
+            }}
+          >
+            {tutorResponse || "Your tutor's answer will appear here."}
+          </div>
+        </section>
+
+        <ConnectWallet />
+
+        <LessonBadge />
+      </div>
+    </main>
   );
 }

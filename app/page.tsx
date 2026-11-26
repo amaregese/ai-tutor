@@ -175,6 +175,7 @@ function LessonAudio({
 }) {
   const [status, setStatus] = useState<AudioStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [speed, setSpeed] = useState(1);
@@ -223,59 +224,66 @@ function LessonAudio({
   async function loadAudio() {
     setStatus("loading");
     setError(null);
+    setNotice(null);
+    cleanupAudio();
+
     try {
       const res = await fetch("/api/speak", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: lessonText }),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        setError(
-          res.status === 429
-            ? "Too many requests. Please wait a minute and try again."
-            : body?.error ?? "Something went wrong"
-        );
-        setStatus("error");
+      if (res.ok) {
+        const blob = await res.blob();
+        startAudio(URL.createObjectURL(blob), true);
         return;
       }
-      const blob = await res.blob();
-      cleanupAudio();
-      const url = URL.createObjectURL(blob);
-      urlRef.current = url;
-      const audio = new Audio(url);
-      audio.preload = "auto";
-      audio.playbackRate = speed;
-      audioRef.current = audio;
-      loadedTextRef.current = lessonText;
-
-      audio.onloadedmetadata = () => {
-        setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
-      };
-      audio.ontimeupdate = () => setCurrentTime(audio.currentTime);
-      audio.onplay = () => setStatus("playing");
-      audio.onpause = () =>
-        setStatus((prev) => (prev === "ended" ? "ended" : "paused"));
-      audio.onended = () => {
-        setStatus("ended");
-        setCurrentTime(Number.isFinite(audio.duration) ? audio.duration : 0);
-        onEndedRef.current();
-      };
-      audio.onerror = () => {
-        setError("Audio playback failed. Please try again.");
-        setStatus("error");
-      };
-
-      setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
-      setCurrentTime(0);
-      setStatus("ready");
-      audio.play().catch(() => {
-        // Autoplay may be blocked; the controls remain available.
-      });
+      setNotice("Live narration unavailable — playing the recorded narration.");
     } catch {
-      setError("Audio playback failed. Please try again.");
-      setStatus("error");
+      setNotice("Live narration unavailable — playing the recorded narration.");
     }
+
+    startAudio("/audio/intro-to-ai.mp3", false);
+  }
+
+  function startAudio(src: string, isLive: boolean) {
+    cleanupAudio();
+    const audio = new Audio(src);
+    audio.preload = "auto";
+    audio.playbackRate = speed;
+    audioRef.current = audio;
+    if (isLive) urlRef.current = src;
+    loadedTextRef.current = lessonText;
+
+    audio.onloadedmetadata = () => {
+      setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
+    };
+    audio.ontimeupdate = () => setCurrentTime(audio.currentTime);
+    audio.onplay = () => setStatus("playing");
+    audio.onpause = () =>
+      setStatus((prev) => (prev === "ended" ? "ended" : "paused"));
+    audio.onended = () => {
+      setStatus("ended");
+      setCurrentTime(Number.isFinite(audio.duration) ? audio.duration : 0);
+      onEndedRef.current();
+    };
+    audio.onerror = () => {
+      if (isLive) {
+        setNotice("Live narration couldn't be played — playing the recorded narration.");
+        startAudio("/audio/intro-to-ai.mp3", false);
+        return;
+      }
+      setError("The narration couldn't be loaded");
+      setStatus("error");
+    };
+
+    setDuration(0);
+    setCurrentTime(0);
+    setStatus("ready");
+    audio.load();
+    audio.play().catch(() => {
+      // Autoplay may be blocked; the controls remain available.
+    });
   }
 
   function togglePlay() {
@@ -287,7 +295,7 @@ function LessonAudio({
     }
     if (audio.ended) audio.currentTime = 0;
     audio.play().catch(() => {
-      setError("Audio playback failed. Please try again.");
+      setError("The narration couldn't be loaded");
       setStatus("error");
     });
   }
@@ -298,7 +306,7 @@ function LessonAudio({
     audio.currentTime = 0;
     setCurrentTime(0);
     audio.play().catch(() => {
-      setError("Audio playback failed. Please try again.");
+      setError("The narration couldn't be loaded");
       setStatus("error");
     });
   }
@@ -350,6 +358,12 @@ function LessonAudio({
         </button>
       )}
 
+      {notice && (
+        <p className="ai-audio-notice" role="status">
+          {notice}
+        </p>
+      )}
+
       {status === "error" && (
         <div className="ai-audio-error">
           <p className="ai-error" role="alert">
@@ -361,6 +375,15 @@ function LessonAudio({
             aria-label="Retry loading audio"
           >
             Retry
+          </button>
+          <button
+            className="ai-btn ai-btn-secondary"
+            onClick={() => {
+              setStatus("ended");
+              onEnded();
+            }}
+          >
+            Continue without audio
           </button>
         </div>
       )}
@@ -420,6 +443,9 @@ function LessonAudio({
           </label>
         </div>
       )}
+      <p className="ai-audio-caption">
+        Narration generated with ElevenLabs (Sarah voice)
+      </p>
     </div>
   );
 }

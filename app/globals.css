@@ -1349,6 +1349,23 @@ input:focus-visible {
   max-width: 100%;
 }
 
+.ai-audio-caption {
+  margin: var(--space-2) 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ai-audio-notice {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
 .ai-audio-controls {
   display: flex;
   flex-wrap: wrap;

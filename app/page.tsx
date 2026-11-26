@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import ConnectWallet from "./components/ConnectWallet";
 import LessonBadge from "./components/LessonBadge";
 
@@ -129,14 +129,287 @@ function AskPanel({
   );
 }
 
+type AudioStatus =
+  | "idle"
+  | "loading"
+  | "ready"
+  | "playing"
+  | "paused"
+  | "ended"
+  | "error";
+
+function formatTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+  const total = Math.floor(seconds);
+  const minutes = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${minutes}:${secs.toString().padStart(2, "0")}`;
+}
+
+function LessonAudio({
+  lessonText,
+  onEnded,
+}: {
+  lessonText: string;
+  onEnded: () => void;
+}) {
+  const [status, setStatus] = useState<AudioStatus>("idle");
+  const [error, setError] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [speed, setSpeed] = useState(1);
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const urlRef = useRef<string | null>(null);
+  const loadedTextRef = useRef<string | null>(null);
+  const onEndedRef = useRef(onEnded);
+  useEffect(() => {
+    onEndedRef.current = onEnded;
+  }, [onEnded]);
+
+  const cleanupAudio = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.onended = null;
+      audio.ontimeupdate = null;
+      audio.onloadedmetadata = null;
+      audio.onplay = null;
+      audio.onpause = null;
+      audio.onerror = null;
+      audioRef.current = null;
+    }
+    if (urlRef.current) {
+      URL.revokeObjectURL(urlRef.current);
+      urlRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => cleanupAudio();
+  }, [cleanupAudio]);
+
+  useEffect(() => {
+    if (loadedTextRef.current !== null && loadedTextRef.current !== lessonText) {
+      cleanupAudio();
+      loadedTextRef.current = null;
+      setStatus("idle");
+      setError(null);
+      setCurrentTime(0);
+      setDuration(0);
+    }
+  }, [lessonText, cleanupAudio]);
+
+  async function loadAudio() {
+    setStatus("loading");
+    setError(null);
+    try {
+      const res = await fetch("/api/speak", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: lessonText }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setError(
+          res.status === 429
+            ? "Too many requests. Please wait a minute and try again."
+            : body?.error ?? "Something went wrong"
+        );
+        setStatus("error");
+        return;
+      }
+      const blob = await res.blob();
+      cleanupAudio();
+      const url = URL.createObjectURL(blob);
+      urlRef.current = url;
+      const audio = new Audio(url);
+      audio.preload = "auto";
+      audio.playbackRate = speed;
+      audioRef.current = audio;
+      loadedTextRef.current = lessonText;
+
+      audio.onloadedmetadata = () => {
+        setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
+      };
+      audio.ontimeupdate = () => setCurrentTime(audio.currentTime);
+      audio.onplay = () => setStatus("playing");
+      audio.onpause = () =>
+        setStatus((prev) => (prev === "ended" ? "ended" : "paused"));
+      audio.onended = () => {
+        setStatus("ended");
+        setCurrentTime(Number.isFinite(audio.duration) ? audio.duration : 0);
+        onEndedRef.current();
+      };
+      audio.onerror = () => {
+        setError("Audio playback failed. Please try again.");
+        setStatus("error");
+      };
+
+      setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
+      setCurrentTime(0);
+      setStatus("ready");
+      audio.play().catch(() => {
+        // Autoplay may be blocked; the controls remain available.
+      });
+    } catch {
+      setError("Audio playback failed. Please try again.");
+      setStatus("error");
+    }
+  }
+
+  function togglePlay() {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (status === "playing") {
+      audio.pause();
+      return;
+    }
+    if (audio.ended) audio.currentTime = 0;
+    audio.play().catch(() => {
+      setError("Audio playback failed. Please try again.");
+      setStatus("error");
+    });
+  }
+
+  function restart() {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = 0;
+    setCurrentTime(0);
+    audio.play().catch(() => {
+      setError("Audio playback failed. Please try again.");
+      setStatus("error");
+    });
+  }
+
+  function seek(value: number) {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = value;
+    setCurrentTime(value);
+  }
+
+  function changeSpeed(value: number) {
+    setSpeed(value);
+    if (audioRef.current) audioRef.current.playbackRate = value;
+  }
+
+  const showControls =
+    status === "ready" ||
+    status === "playing" ||
+    status === "paused" ||
+    status === "ended";
+  const isPlaying = status === "playing";
+
+  return (
+    <div className="ai-audio">
+      {status === "idle" && (
+        <button
+          className="ai-btn-play ai-btn-primary"
+          onClick={loadAudio}
+          aria-label="Listen to the lesson"
+        >
+          <span className="ai-btn-play-icon" aria-hidden="true">
+            ▶
+          </span>
+          Listen to the lesson
+        </button>
+      )}
+
+      {status === "loading" && (
+        <button
+          className="ai-btn-play ai-btn-primary"
+          disabled
+          aria-label="Loading audio"
+        >
+          <span className="ai-btn-play-icon" aria-hidden="true">
+            ⟳
+          </span>
+          Loading…
+        </button>
+      )}
+
+      {status === "error" && (
+        <div className="ai-audio-error">
+          <p className="ai-error" role="alert">
+            {error}
+          </p>
+          <button
+            className="ai-btn ai-btn-primary"
+            onClick={loadAudio}
+            aria-label="Retry loading audio"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {showControls && (
+        <div className="ai-audio-controls">
+          <button
+            className="ai-btn ai-btn-primary ai-audio-toggle"
+            onClick={togglePlay}
+            aria-label={isPlaying ? "Pause narration" : "Play narration"}
+          >
+            <span className="ai-btn-play-icon" aria-hidden="true">
+              {isPlaying ? "❚❚" : "▶"}
+            </span>
+            {isPlaying ? "Pause" : "Play"}
+          </button>
+
+          <button
+            className="ai-btn ai-btn-secondary ai-audio-restart"
+            onClick={restart}
+            aria-label="Restart narration from the beginning"
+          >
+            <span aria-hidden="true">↺</span> Restart
+          </button>
+
+          <div className="ai-audio-seek">
+            <input
+              className="ai-audio-range"
+              type="range"
+              min={0}
+              max={duration || 0}
+              step={0.1}
+              value={currentTime}
+              onChange={(event) => seek(Number(event.target.value))}
+              aria-label="Seek narration"
+              aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
+            />
+            <div className="ai-audio-time">
+              <span>{formatTime(currentTime)}</span>
+              <span>{formatTime(duration)}</span>
+            </div>
+          </div>
+
+          <label className="ai-audio-speed">
+            <span className="ai-audio-speed-label">Speed</span>
+            <select
+              className="ai-audio-select"
+              value={speed}
+              onChange={(event) => changeSpeed(Number(event.target.value))}
+              aria-label="Playback speed"
+            >
+              <option value={0.75}>0.75x</option>
+              <option value={1}>1x</option>
+              <option value={1.25}>1.25x</option>
+              <option value={1.5}>1.5x</option>
+            </select>
+          </label>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Home() {
   const [lessonContent] = useState(LESSON_TEXT);
-  const [isLoading, setIsLoading] = useState(false);
   const [isAsking, setIsAsking] = useState(false);
   const [question, setQuestion] = useState("");
   const [tutorResponse, setTutorResponse] = useState("");
   const [askError, setAskError] = useState("");
-  const [speakError, setSpeakError] = useState<string | null>(null);
   const [askDrawerOpen, setAskDrawerOpen] = useState(false);
 
   const [hasListened, setHasListened] = useState(false);
@@ -154,39 +427,6 @@ export default function Home() {
   let currentStep: string = "listen";
   if (hasListened && !quizDone) currentStep = "quiz";
   if (quizDone) currentStep = "badge";
-
-  async function speak(text: string) {
-    setIsLoading(true);
-    setSpeakError(null);
-    try {
-      const res = await fetch("/api/speak", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        setSpeakError(
-          res.status === 429
-            ? "Too many requests. Please wait a minute and try again."
-            : body?.error ?? "Something went wrong"
-        );
-        return;
-      }
-      const blob = await res.blob();
-      const audio = new Audio(URL.createObjectURL(blob));
-      await new Promise<void>((resolve, reject) => {
-        audio.onended = () => resolve();
-        audio.onerror = () => reject(new Error("Audio playback failed"));
-        audio.play().catch(reject);
-      });
-      setHasListened(true);
-    } catch {
-      setSpeakError("Audio playback failed. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  }
 
   async function askQuestion() {
     if (!question.trim()) {
@@ -375,19 +615,10 @@ export default function Home() {
                 <span>Voice by ElevenLabs</span>
               </div>
               <p className="ai-lead">{lessonContent}</p>
-              {speakError && (
-                <div className="ai-error">{speakError}</div>
-              )}
-              <button
-                className="ai-btn-play ai-btn-primary"
-                onClick={() => speak(lessonContent)}
-                disabled={isLoading}
-              >
-                <span className="ai-btn-play-icon">
-                  {isLoading ? "⟳" : "▶"}
-                </span>
-                {isLoading ? "Loading…" : "Listen to the lesson"}
-              </button>
+              <LessonAudio
+                lessonText={lessonContent}
+                onEnded={() => setHasListened(true)}
+              />
             </section>
           )}
 

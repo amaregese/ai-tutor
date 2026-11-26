@@ -34,7 +34,11 @@ function shortenAddress(address: string): string {
   return `${address.slice(0, 4)}…${address.slice(-4)}`;
 }
 
-export default function ConnectWallet() {
+interface ConnectWalletProps {
+  compact?: boolean;
+}
+
+export default function ConnectWallet({ compact = false }: ConnectWalletProps) {
   const [isInstalled, setIsInstalled] = useState<boolean>(false);
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -87,49 +91,55 @@ export default function ConnectWallet() {
     setError(null);
   }
 
-  if (!isInstalled) {
-    return (
-      <section
-        style={{
-          backgroundColor: "#ffffff",
-          border: "1px solid #e2e8f0",
-          borderRadius: 16,
-          padding: 32,
-          marginBottom: 40,
-          boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
-        }}
-      >
-        <h2
-          style={{
-            fontSize: 22,
-            fontWeight: 700,
-            marginBottom: 16,
-            color: "#0f172a",
-            letterSpacing: "-0.01em",
-          }}
-        >
-          Connect Phantom Wallet
-        </h2>
-        <p style={{ fontSize: 16, color: "#334155", marginBottom: 20 }}>
-          Phantom wallet extension is not installed. Install it to connect your
-          wallet.
-        </p>
+  if (compact) {
+    if (!isInstalled) {
+      return (
         <a
+          className="ai-btn ai-btn-primary ai-btn-sm"
           href="https://phantom.app/download"
           target="_blank"
           rel="noopener noreferrer"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            padding: "12px 24px",
-            fontSize: 16,
-            fontWeight: 600,
-            color: "#2563eb",
-            textDecoration: "none",
-            border: "1px solid #2563eb",
-            borderRadius: 10,
-            transition: "background-color 0.2s",
-          }}
+        >
+          Install Phantom
+        </a>
+      );
+    }
+    if (!publicKey) {
+      return (
+        <button
+          className="ai-btn ai-btn-primary ai-btn-sm"
+          onClick={handleConnect}
+          disabled={isConnecting}
+        >
+          {isConnecting ? "Connecting…" : "Connect Wallet"}
+        </button>
+      );
+    }
+    return (
+      <button
+        className="ai-btn ai-btn-secondary ai-btn-sm ai-wallet-connected"
+        onClick={handleDisconnect}
+        title="Disconnect wallet"
+        aria-label={`Connected wallet ${shortenAddress(publicKey)}. Click to disconnect.`}
+      >
+        <span className="ai-network-dot" />
+        {shortenAddress(publicKey)}
+      </button>
+    );
+  }
+
+  if (!isInstalled) {
+    return (
+      <section className="ai-card wallet">
+        <h2 className="ai-h2">Connect Phantom Wallet</h2>
+        <p className="ai-lead">
+          Phantom wallet extension is not installed. Install it to connect your
+          wallet.
+        </p>
+        <a className="ai-btn ai-btn-primary ai-btn-lg"
+          href="https://phantom.app/download"
+          target="_blank"
+          rel="noopener noreferrer"
         >
           Install Phantom
         </a>
@@ -138,96 +148,32 @@ export default function ConnectWallet() {
   }
 
   return (
-    <section
-      style={{
-        backgroundColor: "#ffffff",
-        border: "1px solid #e2e8f0",
-        borderRadius: 16,
-        padding: 32,
-        marginBottom: 40,
-        boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
-      }}
-    >
-      <h2
-        style={{
-          fontSize: 22,
-          fontWeight: 700,
-          marginBottom: 20,
-          color: "#0f172a",
-          letterSpacing: "-0.01em",
-        }}
-      >
-        Connect Phantom Wallet
-      </h2>
+    <section className="ai-card wallet">
+      <h2 className="ai-h2">Connect Phantom Wallet</h2>
 
       {!publicKey ? (
         <button
+          className="ai-btn ai-btn-primary ai-btn-lg ai-btn-full"
           onClick={handleConnect}
           disabled={isConnecting}
-          style={{
-            padding: "12px 24px",
-            fontSize: 16,
-            fontWeight: 600,
-            cursor: isConnecting ? "not-allowed" : "pointer",
-            backgroundColor: isConnecting ? "#94a3b8" : "#2563eb",
-            color: "#ffffff",
-            border: "none",
-            borderRadius: 10,
-            opacity: isConnecting ? 0.6 : 1,
-            transition: "background-color 0.2s, transform 0.1s",
-            boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
-          }}
         >
           {isConnecting ? "Connecting…" : "Connect Wallet"}
         </button>
       ) : (
         <>
-          <p
-            style={{
-              fontSize: 16,
-              color: "#334155",
-              marginBottom: 16,
-              fontWeight: 500,
-            }}
-          >
-            Connected:{" "}
-            <code style={{ color: "#0f172a" }}>{shortenAddress(publicKey)}</code>
+          <p className="ai-lead ai-mb-0">
+            Connected: <code>{shortenAddress(publicKey)}</code>
           </p>
           <button
+            className="ai-btn ai-btn-secondary ai-btn-lg"
             onClick={handleDisconnect}
-            style={{
-              padding: "10px 20px",
-              fontSize: 16,
-              fontWeight: 600,
-              cursor: "pointer",
-              backgroundColor: "#f8fafc",
-              color: "#dc2626",
-              border: "1px solid #fecaca",
-              borderRadius: 10,
-              transition: "background-color 0.2s",
-            }}
           >
             Disconnect
           </button>
         </>
       )}
 
-      {error && (
-        <div
-          style={{
-            marginTop: 12,
-            padding: 10,
-            backgroundColor: "#fef2f2",
-            border: "1px solid #fecaca",
-            borderRadius: 8,
-            color: "#dc2626",
-            fontSize: 14,
-            fontWeight: 500,
-          }}
-        >
-          {error}
-        </div>
-      )}
+      {error && <div className="ai-error">{error}</div>}
     </section>
   );
 }

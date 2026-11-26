@@ -1,48 +1,19 @@
-import { GoogleGenAI } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
 
 const MAX_QUESTION_LENGTH = 1000;
 const MAX_LESSON_TEXT_LENGTH = 5000;
-const MAX_RETRIES = 2;
-const INITIAL_BACKOFF_MS = 1000;
+const MAX_RETRIES = 1;
+const INITIAL_BACKOFF_MS = 500;
 const MAX_BACKOFF_MS = 8000;
 
-function getGeminiErrorStatus(error: unknown): number | null {
+function getGroqErrorStatus(error: unknown): number | null {
   if (error && typeof error === "object") {
     const err = error as Record<string, unknown>;
-
-    for (const key of ["status", "code"]) {
-      const val = err[key];
-      const parsed = normalizeStatus(val);
-      if (parsed !== null) {
-        return parsed;
-      }
+    const status = err.status;
+    if (typeof status === "number") {
+      return status;
     }
-
-    const nested = err.error;
-    if (nested && typeof nested === "object") {
-      const n = nested as Record<string, unknown>;
-      for (const key of ["code", "status"]) {
-        const val = n[key];
-        const parsed = normalizeStatus(val);
-        if (parsed !== null) {
-          return parsed;
-        }
-      }
-    }
-  }
-  return null;
-}
-
-function normalizeStatus(value: unknown): number | null {
-  if (typeof value === "number") {
-    return value;
-  }
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
-      return parsed;
-    }
+    return null;
   }
   return null;
 }
@@ -102,16 +73,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
 
   if (!apiKey) {
     return NextResponse.json(
-      { error: "Gemini API key is not configured on the server." },
+      { error: "Groq API key is not configured on the server." },
       { status: 503 }
     );
   }
-
-  const genAI = new GoogleGenAI({ apiKey });
 
   const systemPrompt = `You are a friendly and helpful AI tutor. Answer the student's question based only on the supplied lesson content. Explain concepts clearly and simply. If the question goes beyond what is covered in the lesson, admit that you do not have enough information from the lesson and suggest what the student could explore next. Do not fabricate facts. Be encouraging and supportive.
 
@@ -128,17 +97,50 @@ ${question.trim()}`;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const response = await genAI.models.generateContent({
-        model: "gemini-3.8-flash",
-        contents: systemPrompt,
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
 
-      const answer = response.text ?? "I'm sorry, I couldn't generate an answer. Please try again.";
+      try {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "openai/gpt-oss-20b",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: question.trim() },
+            ],
+          }),
+          signal: controller.signal,
+        });
 
-      return NextResponse.json({ answer }, { status: 200 });
-    } catch (error) {
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorBody = await response.json().catch(() => null);
+          const status = errorBody?.status ?? response.status;
+          lastError = new Error(`Groq API error: ${status}`);
+          if (!isRetryable(status) || attempt === MAX_RETRIES) {
+            break;
+          }
+          await sleep(Math.min(delay, MAX_BACKOFF_MS));
+          delay *= 2;
+          continue;
+        }
+
+        const data = await response.json();
+        const answer = data.choices?.[0]?.message?.content ?? "I'm sorry, I couldn't generate an answer. Please try again.";
+
+        return NextResponse.json({ answer }, { status: 200 });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    } catch (error: unknown) {
       lastError = error;
-      const status = getGeminiErrorStatus(error);
+      const status = getGroqErrorStatus(error);
 
       if (!isRetryable(status) || attempt === MAX_RETRIES) {
         break;
@@ -149,7 +151,7 @@ ${question.trim()}`;
     }
   }
 
-  console.error("Gemini error after retries:", lastError);
+  console.error("Groq error after retries:", lastError);
   return NextResponse.json(
     { error: "The tutor is temporarily unavailable. Please try again later." },
     { status: 503 }

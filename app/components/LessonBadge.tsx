@@ -44,7 +44,8 @@ export default function LessonBadge() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [currentStage, setCurrentStage] = useState<string | null>(null);
+  const [cancelled, setCancelled] = useState<string | null>(null);
+  const [copied, setCopied] = useState<boolean>(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -60,13 +61,12 @@ export default function LessonBadge() {
 
   async function handleEarnBadge() {
     setError(null);
-    setCurrentStage(null);
+    setCancelled(null);
     let stage = "START";
 
     try {
       const provider = getProvider();
       stage = "CONNECT_WALLET";
-      setCurrentStage("CONNECT_WALLET");
       if (!provider?.isPhantom) {
         setError("Phantom extension not installed.");
         return;
@@ -93,7 +93,6 @@ export default function LessonBadge() {
       const connection = new Connection(DEVNET_RPC_URL, "confirmed");
 
       stage = "CREATE_TRANSACTION";
-      setCurrentStage("CREATE_TRANSACTION");
       const memoInstruction = new TransactionInstruction({
         keys: [
           {
@@ -113,7 +112,6 @@ export default function LessonBadge() {
       transaction.add(memoInstruction);
 
       stage = "FETCH_BLOCKHASH";
-      setCurrentStage("FETCH_BLOCKHASH");
       const { blockhash } = await connection.getLatestBlockhash("confirmed");
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = new PublicKey(walletAddress);
@@ -124,7 +122,6 @@ export default function LessonBadge() {
       }
 
       stage = "PHANTOM_REQUEST";
-      setCurrentStage("PHANTOM_REQUEST");
       const result = await provider.signAndSendTransaction?.(transaction);
       const sig = result?.signature;
       if (!sig) {
@@ -135,7 +132,6 @@ export default function LessonBadge() {
       setSignature(sig);
 
       stage = "CONFIRM_TRANSACTION";
-      setCurrentStage("CONFIRM_TRANSACTION");
       const confirmation = await connection.confirmTransaction(
         sig,
         "confirmed"
@@ -148,14 +144,24 @@ export default function LessonBadge() {
       }
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
+      const code = (err as { code?: number })?.code;
+      const isRejection =
+        code === 4001 ||
+        /user rejected/i.test(errMsg) ||
+        /rejected the request/i.test(errMsg);
+
+      if (isRejection) {
+        setCancelled(
+          "Transaction cancelled. No problem, you can try again when you're ready."
+        );
+        return;
+      }
+
       const stageLabel = stage;
       console.error(`Badge error at stage [${stageLabel}]:`, errMsg);
-      const code = (err as { code?: number })?.code;
 
       let classifiedError = errMsg;
-      if (code === 4001 || /user rejected/i.test(errMsg)) {
-        classifiedError = "Transaction was rejected by the user.";
-      } else if (
+      if (
         /insufficient/i.test(errMsg) ||
         /insufficient funds/i.test(errMsg) ||
         /insufficient SOL/i.test(errMsg)
@@ -170,47 +176,28 @@ export default function LessonBadge() {
     }
   }
 
+  async function handleCopy() {
+    if (!signature) return;
+    try {
+      await navigator.clipboard.writeText(signature);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
+  }
+
   if (!isInstalled) {
     return (
-      <section
-        style={{
-          backgroundColor: "#ffffff",
-          border: "1px solid #e2e8f0",
-          borderRadius: 16,
-          padding: 32,
-          marginBottom: 40,
-          boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
-        }}
-      >
-        <h2
-          style={{
-            fontSize: 22,
-            fontWeight: 700,
-            marginBottom: 16,
-            color: "#0f172a",
-          }}
-        >
-          Earn Learning Badge
-        </h2>
-        <p style={{ fontSize: 16, color: "#334155", marginBottom: 20 }}>
+      <section className="ai-card badge">
+        <h2 className="ai-h2">Earn your on-chain badge</h2>
+        <p className="ai-lead">
           Phantom wallet extension is not installed. Install it to earn a badge.
         </p>
-        <a
+        <a className="ai-btn ai-btn-primary ai-btn-lg"
           href="https://phantom.app/download"
           target="_blank"
           rel="noopener noreferrer"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            padding: "12px 24px",
-            fontSize: 16,
-            fontWeight: 600,
-            color: "#2563eb",
-            textDecoration: "none",
-            border: "1px solid #2563eb",
-            borderRadius: 10,
-            transition: "background-color 0.2s",
-          }}
         >
           Install Phantom
         </a>
@@ -219,138 +206,77 @@ export default function LessonBadge() {
   }
 
   return (
-    <section
-      style={{
-        backgroundColor: "#ffffff",
-        border: "1px solid #e2e8f0",
-        borderRadius: 16,
-        padding: 32,
-        marginBottom: 40,
-        boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
-      }}
-    >
-      <h2
-        style={{
-          fontSize: 22,
-          fontWeight: 700,
-          marginBottom: 16,
-          color: "#0f172a",
-        }}
-      >
-        Earn Learning Badge
-      </h2>
-      <p style={{ fontSize: 16, color: "#334155", marginBottom: 24 }}>
-        Complete the lesson to earn a Solana Devnet learning badge. A Memo
-        transaction will be submitted to Devnet for your approval.
+    <section className="ai-card badge">
+      <h2 className="ai-h2">Earn your on-chain badge</h2>
+      <p className="ai-lead">
+        Complete the lesson to earn a verifiable on-chain learning record. A
+        Memo transaction will be submitted to Solana Devnet for your approval.
       </p>
 
       {!publicKey ? (
         <button
+          className="ai-btn ai-btn-primary ai-btn-lg ai-btn-full"
           onClick={handleEarnBadge}
           disabled={isSubmitting}
-          style={{
-            padding: "12px 24px",
-            fontSize: 16,
-            fontWeight: 600,
-            cursor: isSubmitting ? "not-allowed" : "pointer",
-            backgroundColor: isSubmitting ? "#94a3b8" : "#2563eb",
-            color: "#ffffff",
-            border: "none",
-            borderRadius: 10,
-            opacity: isSubmitting ? 0.6 : 1,
-            transition: "background-color 0.2s, transform 0.1s",
-            boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
-          }}
         >
-          {isSubmitting ? "Earning badge…" : "Connect & Earn Badge"}
+          {isSubmitting ? "Connecting…" : "Connect & Earn Badge"}
         </button>
       ) : (
         <>
-          <p
-            style={{
-              fontSize: 16,
-              color: "#334155",
-              marginBottom: 16,
-              fontWeight: 500,
-            }}
-          >
-            Wallet: <code style={{ color: "#0f172a" }}>{shortenAddress(publicKey)}</code>
-          </p>
+          <div className="ai-address-pill">
+            Wallet: <code>{shortenAddress(publicKey)}</code>
+          </div>
           {!signature ? (
             <button
+              className="ai-btn ai-btn-primary ai-btn-lg ai-btn-full"
               onClick={handleEarnBadge}
               disabled={isSubmitting}
-              style={{
-                padding: "12px 24px",
-                fontSize: 16,
-                fontWeight: 600,
-                cursor: isSubmitting ? "not-allowed" : "pointer",
-                backgroundColor: isSubmitting ? "#94a3b8" : "#2563eb",
-                color: "#ffffff",
-                border: "none",
-                borderRadius: 10,
-                opacity: isSubmitting ? 0.6 : 1,
-                transition: "background-color 0.2s, transform 0.1s",
-                boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
-              }}
             >
               {isSubmitting ? "Earning badge…" : "Earn Badge"}
             </button>
           ) : (
-            <div
-              style={{
-                padding: 16,
-                backgroundColor: "#f0fdf4",
-                border: "1px solid #bbf7d0",
-                borderRadius: 10,
-                color: "#166534",
-                marginTop: 16,
-              }}
-            >
-              <p style={{ fontWeight: 600, marginBottom: 8 }}>✓ Badge earned!</p>
-              <p style={{ fontSize: 14, marginBottom: 8, wordBreak: "break-all" }}>
-                Signature:{" "}
-                <code style={{ color: "#0f172a" }}>{signature}</code>
+            <div className="ai-badge-earned">
+              <div className="ai-badge-earned-head">
+                <span className="ai-badge-earned-icon">✓</span>
+                <div>
+                  <p className="ai-badge-earned-title">Badge earned</p>
+                  <p className="ai-badge-earned-label">
+                    Verifiable on-chain learning record (Solana Devnet Memo)
+                  </p>
+                </div>
+              </div>
+              <p className="ai-badge-earned-meta">
+                Your lesson completion is recorded on Solana Devnet.
               </p>
+              <div className="ai-badge-sig">
+                <span className="ai-badge-sig-label">Transaction</span>
+                <code className="ai-badge-sig-value">
+                  {shortenAddress(signature)}
+                </code>
+                <button
+                  type="button"
+                  className={`ai-copy-btn ${copied ? "is-copied" : ""}`}
+                  onClick={handleCopy}
+                  aria-label="Copy transaction signature"
+                >
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              </div>
               <a
+                className="ai-btn ai-btn-primary ai-btn-sm"
                 href={`${DEVNET_EXPLORER_URL}/${signature}?cluster=devnet`}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  padding: "8px 16px",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: "#2563eb",
-                  textDecoration: "none",
-                  border: "1px solid #2563eb",
-                  borderRadius: 8,
-                }}
               >
-                View on Devnet Explorer
+                View on Solana Explorer
               </a>
             </div>
           )}
         </>
       )}
 
-      {error && (
-        <div
-          style={{
-            marginTop: 12,
-            padding: 10,
-            backgroundColor: "#fef2f2",
-            border: "1px solid #fecaca",
-            borderRadius: 8,
-            color: "#dc2626",
-            fontSize: 14,
-            fontWeight: 500,
-          }}
-        >
-          {error}
-        </div>
-      )}
+      {cancelled && <div className="ai-info">{cancelled}</div>}
+      {error && <div className="ai-error">{error}</div>}
     </section>
   );
 }

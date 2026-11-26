@@ -1,33 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
-
-interface PhantomProvider {
-  isPhantom?: boolean;
-  connect?: () => Promise<{ publicKey?: { toString?: () => string } }>;
-  disconnect?: () => void;
-  on?: (event: string, handler: () => void) => void;
-}
-
-declare global {
-  interface Window {
-    phantom?: {
-      solana?: PhantomProvider;
-    };
-    solana?: PhantomProvider;
-  }
-}
-
-function isPhantomInstalled(): boolean {
-  return typeof window !== "undefined"
-    ? Boolean(window.phantom?.solana?.isPhantom)
-    : false;
-}
-
-function getProvider(): PhantomProvider | undefined {
-  return typeof window !== "undefined"
-    ? window.phantom?.solana ?? window.solana
-    : undefined;
-}
+import { useState } from "react";
+import { useWallet } from "./WalletProvider";
 
 function shortenAddress(address: string): string {
   if (!address) return address;
@@ -39,33 +12,15 @@ interface ConnectWalletProps {
 }
 
 export default function ConnectWallet({ compact = false }: ConnectWalletProps) {
-  const [isInstalled, setIsInstalled] = useState<boolean>(false);
-  const [publicKey, setPublicKey] = useState<string | null>(null);
+  const { isInstalled, publicKey, connect, disconnect } = useWallet();
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsInstalled(isPhantomInstalled());
-    }, 0);
-    return () => clearTimeout(timer);
-  }, []);
 
   async function handleConnect() {
     setError(null);
     setIsConnecting(true);
     try {
-      const provider = getProvider();
-      if (!provider?.isPhantom) {
-        setError("Phantom extension not installed.");
-        return;
-      }
-      const response = await provider.connect?.();
-      const publicKeyStr =
-        response?.publicKey?.toString?.() ?? response?.publicKey;
-      if (typeof publicKeyStr === "string") {
-        setPublicKey(publicKeyStr);
-      }
+      await connect();
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
       if ((err as { code?: number })?.code === 4001 || /user rejected/i.test(errMsg)) {
@@ -80,14 +35,10 @@ export default function ConnectWallet({ compact = false }: ConnectWalletProps) {
 
   async function handleDisconnect() {
     try {
-      const provider = getProvider();
-      if (provider?.disconnect) {
-        provider.disconnect();
-      }
+      await disconnect();
     } catch {
       // Ignore disconnect errors
     }
-    setPublicKey(null);
     setError(null);
   }
 

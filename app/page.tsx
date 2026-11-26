@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import ConnectWallet from "./components/ConnectWallet";
 import LessonBadge from "./components/LessonBadge";
+import { WalletProvider } from "./components/WalletProvider";
 
 const LESSON_TITLE = "Introduction to Artificial Intelligence";
 
@@ -577,7 +578,8 @@ export default function Home() {
   }
 
   return (
-    <main className="ai-app">
+    <WalletProvider>
+      <main className="ai-app">
       <header className="ai-topbar">
         <div className="ai-brand">
           <div className="ai-logo">AT</div>
@@ -885,6 +887,7 @@ export default function Home() {
           </a>
         </div>
       </footer>
-    </main>
+      </main>
+    </WalletProvider>
   );
 }

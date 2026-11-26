@@ -1,6 +1,7 @@
 "use client";
 import { Buffer } from "buffer";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useWallet } from "./WalletProvider";
 import {
   Connection,
   PublicKey,
@@ -21,6 +22,8 @@ interface PhantomProvider {
     opts?: { onlyIfTrusted?: boolean }
   ) => Promise<{ publicKey?: { toString?: () => string } }>;
   disconnect?: () => void;
+  on?: (event: string, handler: (arg?: unknown) => void) => void;
+  removeListener?: (event: string, handler: (arg?: unknown) => void) => void;
   signAndSendTransaction?: (
     transaction: Transaction
   ) => Promise<{ signature: string }>;
@@ -39,25 +42,34 @@ function shortenAddress(address: string): string {
 }
 
 export default function LessonBadge() {
-  const [isInstalled, setIsInstalled] = useState<boolean>(false);
-  const [publicKey, setPublicKey] = useState<string | null>(null);
+  const { isInstalled, publicKey, connect } = useWallet();
+  const [isConnecting, setIsConnecting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cancelled, setCancelled] = useState<string | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsInstalled(Boolean(getProvider()?.isPhantom));
-      const provider = getProvider();
-      const pk = provider?.publicKey?.toString?.();
-      if (typeof pk === "string") {
-        setPublicKey(pk);
+  async function handleConnectWallet() {
+    setError(null);
+    setCancelled(null);
+    setIsConnecting(true);
+    try {
+      await connect();
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const code = (err as { code?: number })?.code;
+      if (code === 4001 || /user rejected/i.test(errMsg)) {
+        setCancelled(
+          "Connection cancelled. No problem, you can try again when you're ready."
+        );
+      } else {
+        setError("Failed to connect to Phantom. Please try again.");
       }
-    }, 0);
-    return () => clearTimeout(timer);
-  }, []);
+    } finally {
+      setIsConnecting(false);
+    }
+  }
 
   async function handleEarnBadge() {
     setError(null);
@@ -72,21 +84,12 @@ export default function LessonBadge() {
         return;
       }
 
-      let walletAddress = publicKey;
-      if (!walletAddress) {
-        const response = await provider.connect?.();
-        const addr =
-          response?.publicKey?.toString?.() ?? response?.publicKey;
-        if (typeof addr === "string") {
-          walletAddress = addr;
-          setPublicKey(addr);
-        }
-      }
-
-      if (!walletAddress) {
+      if (!publicKey) {
         setError("Wallet not connected.");
         return;
       }
+
+      const walletAddress = publicKey;
 
       setIsSubmitting(true);
 
@@ -129,8 +132,6 @@ export default function LessonBadge() {
         return;
       }
 
-      setSignature(sig);
-
       stage = "CONFIRM_TRANSACTION";
       const confirmation = await connection.confirmTransaction(
         sig,
@@ -142,6 +143,8 @@ export default function LessonBadge() {
         );
         return;
       }
+
+      setSignature(sig);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
       const code = (err as { code?: number })?.code;
@@ -228,19 +231,27 @@ export default function LessonBadge() {
         Memo transaction will be submitted to Solana Devnet for your approval.
       </p>
 
-      {!publicKey ? (
-        <button
-          className="ai-btn ai-btn-primary ai-btn-lg ai-btn-full"
-          onClick={handleEarnBadge}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? "Connecting…" : "Connect & Earn Badge"}
-        </button>
+      {!publicKey && !signature ? (
+        <>
+          <p className="ai-lead ai-mb-0">
+            Quiz passed! Connect your Phantom wallet to record your learning
+            achievement on Solana Devnet.
+          </p>
+          <button
+            className="ai-btn ai-btn-primary ai-btn-lg ai-btn-full"
+            onClick={handleConnectWallet}
+            disabled={isConnecting}
+          >
+            {isConnecting ? "Connecting…" : "Connect Wallet"}
+          </button>
+        </>
       ) : (
         <>
-          <div className="ai-address-pill">
-            Wallet: <code>{shortenAddress(publicKey)}</code>
-          </div>
+          {publicKey && (
+            <div className="ai-address-pill">
+              Wallet: <code>{shortenAddress(publicKey)}</code>
+            </div>
+          )}
           {!signature ? (
             <button
               className="ai-btn ai-btn-primary ai-btn-lg ai-btn-full"

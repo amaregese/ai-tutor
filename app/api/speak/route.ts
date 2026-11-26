@@ -1,3 +1,7 @@
+import { clientIp, rateLimit } from "../../../lib/rateLimit";
+
+const MAX_TEXT_LENGTH = 1500;
+
 export async function POST(req: Request) {
   let text: unknown;
 
@@ -8,7 +12,24 @@ export async function POST(req: Request) {
   }
 
   if (typeof text !== "string" || text.trim().length === 0) {
-    return Response.json({ error: "Text is required" }, { status: 400 });
+    return Response.json({ error: "Text is required." }, { status: 400 });
+  }
+
+  const trimmed = text.trim();
+
+  if (trimmed.length > MAX_TEXT_LENGTH) {
+    return Response.json(
+      { error: `Text must be ${MAX_TEXT_LENGTH} characters or fewer.` },
+      { status: 400 }
+    );
+  }
+
+  const limit = rateLimit(clientIp(req), 10, 60_000);
+  if (!limit.allowed) {
+    return Response.json(
+      { error: "Too many requests. Please wait a minute and try again." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } }
+    );
   }
 
   const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -35,15 +56,14 @@ export async function POST(req: Request) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        text: text.trim(),
+        text: trimmed,
         model_id: "eleven_multilingual_v2",
       }),
     }
   );
 
   if (!res.ok) {
-    const errText = await res.text();
-    console.error("ElevenLabs error:", res.status, errText);
+    console.error("ElevenLabs error status:", res.status);
     return Response.json(
       { error: "Text-to-speech request failed" },
       { status: res.status === 401 || res.status === 403 ? 502 : 500 }

@@ -166,7 +166,11 @@ export default function Home() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        setSpeakError(body?.error ?? "Something went wrong");
+        setSpeakError(
+          res.status === 429
+            ? "Too many requests. Please wait a minute and try again."
+            : body?.error ?? "Something went wrong"
+        );
         return;
       }
       const blob = await res.blob();
@@ -203,7 +207,11 @@ export default function Home() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        setAskError(body?.error ?? "Failed to get a response from the tutor.");
+        setAskError(
+          res.status === 429
+            ? "Too many requests. Please wait a minute and try again."
+            : body?.error ?? "Failed to get a response from the tutor."
+        );
         return;
       }
       const data = await res.json();

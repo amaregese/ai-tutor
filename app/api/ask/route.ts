@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { clientIp, rateLimit } from "../../../lib/rateLimit";
 
 const MAX_QUESTION_LENGTH = 1000;
 const MAX_LESSON_TEXT_LENGTH = 5000;
@@ -70,6 +71,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: `Lesson text is required and must be at most ${MAX_LESSON_TEXT_LENGTH} characters.` },
       { status: 400 }
+    );
+  }
+
+  const limit = rateLimit(clientIp(req), 15, 60_000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait a minute and try again." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } }
     );
   }
 

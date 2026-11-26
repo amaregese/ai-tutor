@@ -16,16 +16,16 @@ AI Tutor turns a short lesson into a voice-led experience with an AI tutor for q
 
 ## How it works
 
-1. **Listen** to the lesson read aloud by an ElevenLabs voice.
-2. **Ask the AI tutor** follow-up questions answered from the lesson content by Groq.
+1. **Listen** to the lesson with ElevenLabs narration when available, or the bundled recorded narration if live generation is unavailable.
+2. **Ask the AI tutor** follow-up questions from the floating chat dialog, answered from the lesson content by Groq.
 3. **Pass the quiz** — a single question with immediate feedback and an explanation.
 4. **Connect Phantom** on Solana Devnet.
 5. **Mint a verifiable on-chain learning record** — a Memo transaction, viewable on Solana Explorer.
 
 ## Sponsor tools
 
-- **ElevenLabs** — voice narration. The browser posts lesson text to the server route `/api/speak`, which calls the ElevenLabs text-to-speech API and streams back audio. The API key stays on the server.
-- **Solana** — the wallet is Phantom on Devnet. Earning the badge submits one Memo transaction to the Memo program on Devnet, then shows a link to the transaction on Solana Explorer.
+- **ElevenLabs** — voice narration. The player first posts lesson text to `/api/speak`, which calls the ElevenLabs text-to-speech API and streams back audio. If live generation is unavailable (for example, no API credit), the player falls back to the bundled `public/audio/intro-to-ai.mp3` (Sarah voice) and shows a status message. The API key stays on the server.
+- **Solana** — the wallet is Phantom on Devnet. A shared wallet context keeps the top-bar wallet button and badge card in sync. Earning the badge submits one Memo transaction to the Memo program on Devnet, then shows a link to the transaction on Solana Explorer.
 - **Vercel** — the app is deployed on Vercel (live demo above).
 - **Groq** — powers the "Ask AI Tutor" Q&A. The server route `/api/ask` calls Groq with the lesson content and the student's question; the key stays on the server.
 
@@ -60,6 +60,8 @@ Prerequisites: Node.js 20+, npm, and the Phantom browser extension.
    - `ELEVENLABS_API_KEY`
    - `ELEVENLABS_VOICE_ID`
    - `GROQ_API_KEY`
+
+   The bundled recorded narration works without these keys. Live ElevenLabs narration and the Ask AI Tutor dialog need them.
 4. Start the dev server: `npm run dev`
 5. Get Devnet SOL: in Phantom, switch to Devnet, then use a Devnet faucet or `solana airdrop 2 <your-address> --url devnet`.
 
@@ -77,7 +79,10 @@ Core voice tutor, Groq Q&A, quiz, wallet connect, and memo badge.
 
 ### Added during the hackathon (Nov 27 - Dec 1)
 
-TODO: fill in on Friday
+- Live-first ElevenLabs narration with a bundled recorded fallback and a failure-only “Continue without audio” path.
+- Shared Phantom wallet state across the top bar and badge card, with confirmation before the earned state.
+- Clickable step navigation, quiz practice mode, and a single floating Ask AI Tutor dialog.
+- Responsive layout, AI Tutor logo, and collapsed Phantom Devnet setup help.
 
 ## Roadmap
 

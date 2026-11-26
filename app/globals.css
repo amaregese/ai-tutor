@@ -117,16 +117,10 @@ input:focus-visible {
 }
 
 .ai-logo {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: var(--radius);
-  background: var(--purple);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 15px;
-  color: #ffffff;
+  background: url("/images/ai-tutor-logo.png") center / contain no-repeat;
   flex-shrink: 0;
 }
 

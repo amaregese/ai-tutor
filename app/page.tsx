@@ -608,7 +608,7 @@ export default function Home() {
       <main className="ai-app">
       <header className="ai-topbar">
         <div className="ai-brand">
-          <div className="ai-logo">AT</div>
+          <div className="ai-logo" aria-hidden="true" />
           <h1 className="ai-topbar-title">AI Tutor</h1>
         </div>
         <div className="ai-topbar-actions">

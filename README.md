@@ -1,78 +1,91 @@
-# AI Voice Tutor with Solana Learning Badges
+# AI Tutor
 
-An AI-powered learning application that combines spoken lessons, an AI tutor Q&A interface, and blockchain-verifiable learning achievements on Solana Devnet.
+**Learn with a voice tutor. Prove it on Solana.**
 
-## Features
+Live demo: https://ai-tutor-nine-jade.vercel.app
 
-- **AI-powered lesson content** — Interactive lesson on Artificial Intelligence with spoken narration
-- **ElevenLabs text-to-speech** — High-quality voice narration of lesson content using the Sarah voice
-- **Gemini AI tutor** — Ask questions about the lesson and receive answers based on the supplied lesson material
-- **Phantom wallet connection** — Connect your Phantom wallet to authenticate and sign transactions
-- **Solana Devnet learning badges** — Earn a blockchain-recorded Memo transaction as a learning achievement (not an NFT or SPL token)
+`![Built for](https://img.shields.io/badge/Built%20for-Dev3pack%20Global%20Hackathon-9945FF)` Built for the Dev3pack Global Hackathon.
 
-## Technology Stack
+## Problem
 
-- **Next.js 16** — React framework with App Router
-- **React 19** — UI library
-- **TypeScript** — Type-safe JavaScript
-- **Google Gemini** — Generative AI for tutor Q&A
-- **ElevenLabs** — Text-to-speech API for spoken lessons
-- **Solana Devnet** — Blockchain for learning badge transactions
-- **Phantom** — Browser wallet for Solana transactions
+Reading a lesson is passive, and it is hard to prove that a learner actually finished the material. Most completion signals live inside a single app and cannot be verified anywhere else.
 
-## Prerequisites
+## Solution
 
-- Node.js and npm installed
-- Phantom browser extension installed
-- Devnet SOL in your Phantom wallet (for badge transaction fees)
-- API keys for Gemini and ElevenLabs
+AI Tutor turns a short lesson into a voice-led experience with an AI tutor for questions and a quick quiz. Passing the quiz lets the learner mint a verifiable on-chain learning record on Solana Devnet.
 
-## Installation
+## How it works
 
-```bash
-# Clone the repository
-git clone <repository-url>
-cd ai-tutor
+1. **Listen** to the lesson read aloud by an ElevenLabs voice.
+2. **Ask the AI tutor** follow-up questions answered from the lesson content by Groq.
+3. **Pass the quiz** — a single question with immediate feedback and an explanation.
+4. **Connect Phantom** on Solana Devnet.
+5. **Mint a verifiable on-chain learning record** — a Memo transaction, viewable on Solana Explorer.
 
-# Install dependencies
-npm install
+## Sponsor tools
 
-# Configure environment variables
-cp .env.example .env.local  # or create .env.local manually
-# Add your API keys to .env.local (see Environment Variables section)
+- **ElevenLabs** — voice narration. The browser posts lesson text to the server route `/api/speak`, which calls the ElevenLabs text-to-speech API and streams back audio. The API key stays on the server.
+- **Solana** — the wallet is Phantom on Devnet. Earning the badge submits one Memo transaction to the Memo program on Devnet, then shows a link to the transaction on Solana Explorer.
+- **Vercel** — the app is deployed on Vercel (live demo above).
+- **Groq** — powers the "Ask AI Tutor" Q&A. The server route `/api/ask` calls Groq with the lesson content and the student's question; the key stays on the server.
 
-# Start the development server
-npm run dev
+## Honest note
 
-# Open http://localhost:3000 in your browser
-```
+The on-chain record is a **Solana Memo transaction** — a verifiable learning record. It is **not an NFT** and does not mint a token.
 
-## Environment Variables
+## Note for judges
 
-Create a `.env.local` file in the project root with the following variables (replace placeholder values with your actual keys):
+A new domain can trigger a Phantom "dApp could be malicious" warning. This app only requests **one Memo transaction on Devnet** and performs **no token transfers**. After inspecting the transaction, you can choose "Proceed anyway".
 
-```
-GEMINI_API_KEY=your_gemini_api_key_here
-ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
-ELEVENLABS_VOICE_ID=your_elevenlabs_voice_id_here
-```
+Source code: https://github.com/amaregese/ai-tutor
 
-Never commit `.env.local` to version control. It is already excluded via `.gitignore`.
+## Tech stack
 
-## Run Locally
+- Next.js `16.4.6` (App Router)
+- React `19.3.0`, React DOM `19.3.0`
+- TypeScript `^5`
+- Tailwind CSS `4.3.3`, `@tailwindcss/turbopack` `4.3.3`
+- `@solana/web3.js` `^1.99.0`
+- ESLint `^9`, `eslint-config-next` `16.4.6`
+- `@types/node` `^20`, `@types/react` `^19`, `@types/react-dom` `^19`
+- ElevenLabs API (server route) and Groq API (server route)
 
-```bash
-npm run dev
-```
+## Local setup
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the application.
+Prerequisites: Node.js 20+, npm, and the Phantom browser extension.
 
-## Solana Devnet Learning Badges
+1. Install dependencies: `npm install`
+2. Copy the example env file: `cp .env.example .env.local`
+3. Fill in these variable names in `.env.local` (values are not included here):
+   - `ELEVENLABS_API_KEY`
+   - `ELEVENLABS_VOICE_ID`
+   - `GROQ_API_KEY`
+4. Start the dev server: `npm run dev`
+5. Get Devnet SOL: in Phantom, switch to Devnet, then use a Devnet faucet or `solana airdrop 2 <your-address> --url devnet`.
 
-When you click "Earn Badge," the application submits a Memo transaction to Solana Devnet containing the lesson name and achievement text. This transaction is cryptographically signed by your Phantom wallet and recorded on the Devnet blockchain.
+## Security notes
 
-**Important:** This is a Memo transaction only — it is **not** an NFT, SPL token, or any other tradable asset. It serves as a verifiable record that you completed the lesson.
+- API keys are read only in server routes and are never sent to the client.
+- Input length limits: `/api/speak` caps text at 1500 characters; `/api/ask` caps the question at 1000 and lesson text at 5000 characters.
+- Rate limiting is best-effort and in-memory (per server instance): 10 requests/minute for `/api/speak` and 15 requests/minute for `/api/ask`.
+
+## Hackathon build log
+
+### Before the hackathon
+
+Core voice tutor, Groq Q&A, quiz, wallet connect, and memo badge.
+
+### Added during the hackathon (Nov 27 - Dec 1)
+
+TODO: fill in on Friday
+
+## Roadmap
+
+- Add more lessons and a lesson picker.
+- Persist quiz attempts and progress across sessions.
+- Include the lesson id and timestamp in the Memo record.
+- Add automated tests and CI.
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+MIT — see [LICENSE](LICENSE).

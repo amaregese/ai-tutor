@@ -201,6 +201,21 @@ export default function LessonBadge() {
         >
           Install Phantom
         </a>
+        <details className="ai-info ai-phantom-help">
+          <summary>Using Phantom? Devnet setup help</summary>
+          <p>
+            Enable Testnet Mode and select Solana Devnet in Phantom. You need a
+            little free Devnet SOL to pay the fee; get some at{" "}
+            <a
+              href="https://faucet.solana.com"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              faucet.solana.com
+            </a>
+            .
+          </p>
+        </details>
       </section>
     );
   }
@@ -274,6 +289,22 @@ export default function LessonBadge() {
           )}
         </>
       )}
+
+      <details className="ai-info ai-phantom-help">
+        <summary>Using Phantom? Devnet setup help</summary>
+        <p>
+          Enable Testnet Mode and select Solana Devnet in Phantom. You need a
+          little free Devnet SOL to pay the fee; get some at{" "}
+          <a
+            href="https://faucet.solana.com"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            faucet.solana.com
+          </a>
+          .
+        </p>
+      </details>
 
       {cancelled && <div className="ai-info">{cancelled}</div>}
       {error && <div className="ai-error">{error}</div>}

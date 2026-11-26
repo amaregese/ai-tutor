@@ -49,6 +49,8 @@ const STEPS = [
   { id: "badge", label: "Earn on-chain badge", short: "Badge" },
 ] as const;
 
+type StepId = (typeof STEPS)[number]["id"];
+
 const HOW_IT_WORKS = [
   {
     title: "Listen to the lesson",
@@ -72,6 +74,7 @@ interface AskPanelProps {
   tutorResponse: string;
   askQuestion: () => void;
   handleSuggestedQuestion: (q: string) => void;
+  onClose?: () => void;
 }
 
 function AskPanel({
@@ -82,14 +85,29 @@ function AskPanel({
   tutorResponse,
   askQuestion,
   handleSuggestedQuestion,
+  onClose,
 }: AskPanelProps) {
   return (
     <section className="ai-card ai-ask-panel">
       <div className="ai-ask-panel-header">
-        <h2 className="ai-ask-panel-title">Ask AI Tutor</h2>
-        <p className="ai-ask-panel-caption">
-          Ask a question about the lesson and get an answer from your AI tutor.
-        </p>
+        <div className="ai-ask-panel-heading">
+          <h2 className="ai-ask-panel-title">Ask AI Tutor</h2>
+          <p className="ai-ask-panel-caption">
+            Ask a question about the lesson and get an answer from your AI tutor.
+          </p>
+        </div>
+        {onClose && (
+          <button
+            className="ai-ask-close"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        )}
       </div>
       <div className="ai-ask-chips">
         {SUGGESTED_QUESTIONS.map((q) => (
@@ -107,6 +125,7 @@ function AskPanel({
         value={question}
         onChange={(e) => setQuestion(e.target.value)}
         placeholder="Type your question about the lesson…"
+        autoFocus
       />
       <button
         className="ai-btn ai-btn-primary ai-btn-lg ai-btn-full"
@@ -410,12 +429,17 @@ export default function Home() {
   const [question, setQuestion] = useState("");
   const [tutorResponse, setTutorResponse] = useState("");
   const [askError, setAskError] = useState("");
-  const [askDrawerOpen, setAskDrawerOpen] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
+  const [showAskHint, setShowAskHint] = useState(true);
+  const fabRef = useRef<HTMLButtonElement | null>(null);
 
   const [hasListened, setHasListened] = useState(false);
   const [quizSelected, setQuizSelected] = useState<string | null>(null);
   const [quizAnswered, setQuizAnswered] = useState(false);
   const [quizContinued, setQuizContinued] = useState(false);
+  const [viewedStep, setViewedStep] = useState<StepId>("listen");
+  const [practiceSelected, setPracticeSelected] = useState<string | null>(null);
+  const [practiceAnswered, setPracticeAnswered] = useState(false);
 
   const isCorrect = quizSelected
     ? QUIZ_OPTIONS.find((o) => o.id === quizSelected)?.correct ?? false
@@ -424,9 +448,44 @@ export default function Home() {
   const quizDone = quizPassed && quizContinued;
   const progress = Math.round(((hasListened ? 1 : 0) + (quizDone ? 1 : 0)) / 2 * 100);
 
-  let currentStep: string = "listen";
+  let currentStep: StepId = "listen";
   if (hasListened && !quizDone) currentStep = "quiz";
   if (quizDone) currentStep = "badge";
+
+  const practiceMode = quizDone;
+  const activeQuizSelected = practiceMode ? practiceSelected : quizSelected;
+  const activeQuizAnswered = practiceMode ? practiceAnswered : quizAnswered;
+  const activeQuizCorrect = activeQuizSelected
+    ? QUIZ_OPTIONS.find((o) => o.id === activeQuizSelected)?.correct ?? false
+    : false;
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowAskHint(false), 8000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!askOpen) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setAskOpen(false);
+      requestAnimationFrame(() => fabRef.current?.focus());
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [askOpen]);
+
+  function openAsk() {
+    setAskOpen(true);
+    setShowAskHint(false);
+  }
+
+  function closeAsk() {
+    setAskOpen(false);
+    setShowAskHint(false);
+    requestAnimationFrame(() => fabRef.current?.focus());
+  }
 
   async function askQuestion() {
     if (!question.trim()) {
@@ -476,7 +535,26 @@ export default function Home() {
   }
 
   function continueQuiz() {
+    if (quizDone) return;
     setQuizContinued(true);
+    setViewedStep("badge");
+  }
+
+  function handleAudioEnded() {
+    if (hasListened) return;
+    setHasListened(true);
+    setViewedStep("quiz");
+  }
+
+  function handlePracticeSelect(optionId: string) {
+    if (practiceAnswered) return;
+    setPracticeSelected(optionId);
+    setPracticeAnswered(true);
+  }
+
+  function resetPractice() {
+    setPracticeSelected(null);
+    setPracticeAnswered(false);
   }
 
   function handleSuggestedQuestion(q: string) {
@@ -564,7 +642,10 @@ export default function Home() {
                 <button
                   key={step.id}
                   className={`ai-step ${isDone ? "ai-step-done" : ""} ${isCurrent ? "ai-step-current" : ""} ${isLocked ? "ai-step-locked" : ""}`}
+                  onClick={() => setViewedStep(step.id)}
                   disabled={isLocked}
+                  aria-disabled={isLocked}
+                  aria-current={viewedStep === step.id ? "step" : undefined}
                 >
                   <span className="ai-step-number">
                     {isDone ? "✓" : stepNumber}
@@ -578,15 +659,6 @@ export default function Home() {
               );
             })}
           </nav>
-          <AskPanel
-            question={question}
-            setQuestion={setQuestion}
-            isAsking={isAsking}
-            askError={askError}
-            tutorResponse={tutorResponse}
-            askQuestion={askQuestion}
-            handleSuggestedQuestion={handleSuggestedQuestion}
-          />
         </aside>
 
         <main className="ai-main">
@@ -600,39 +672,54 @@ export default function Home() {
             </div>
           </div>
 
-          {currentStep === "listen" && (
-            <section className="ai-card">
-              <span className="ai-kicker ai-kicker-purple">
-                <span className="ai-kicker-dot" />
-                Lesson 01 &middot; AI Fundamentals
-              </span>
-              <h2 className="ai-h1">{LESSON_TITLE}</h2>
-              <div className="ai-lesson-meta">
-                <span>Lesson 01</span>
-                <span>&middot;</span>
-                <span>Est. 4 min read</span>
-                <span>&middot;</span>
-                <span>Voice by ElevenLabs</span>
-              </div>
-              <p className="ai-lead">{lessonContent}</p>
-              <LessonAudio
-                lessonText={lessonContent}
-                onEnded={() => setHasListened(true)}
-              />
-            </section>
+          {viewedStep !== currentStep && (
+            <button
+              className="ai-btn ai-btn-ghost ai-back-step"
+              onClick={() => setViewedStep(currentStep)}
+            >
+              <span aria-hidden="true">&larr;</span> Back to current step
+            </button>
           )}
 
-          {currentStep === "quiz" && (
+          <section
+            className="ai-card"
+            hidden={viewedStep !== "listen"}
+          >
+            <span className="ai-kicker ai-kicker-purple">
+              <span className="ai-kicker-dot" />
+              Lesson 01 &middot; AI Fundamentals
+            </span>
+            <h2 className="ai-h1">{LESSON_TITLE}</h2>
+            <div className="ai-lesson-meta">
+              <span>Lesson 01</span>
+              <span>&middot;</span>
+              <span>Est. 4 min read</span>
+              <span>&middot;</span>
+              <span>Voice by ElevenLabs</span>
+            </div>
+            <p className="ai-lead">{lessonContent}</p>
+            <LessonAudio
+              lessonText={lessonContent}
+              onEnded={handleAudioEnded}
+            />
+          </section>
+
+          {viewedStep === "quiz" && (
             <section className="ai-card">
               <span className="ai-kicker ai-kicker-navy">
                 <span className="ai-kicker-dot" />
                 Check your understanding
               </span>
+              {practiceMode && (
+                <p className="ai-practice-note">
+                  Practice mode, your progress is saved
+                </p>
+              )}
               <h3 className="ai-h3">{QUIZ_QUESTION}</h3>
               <div className="ai-quiz-options">
                 {QUIZ_OPTIONS.map((option) => {
-                  const isSelected = quizSelected === option.id;
-                  const isRevealed = quizAnswered;
+                  const isSelected = activeQuizSelected === option.id;
+                  const isRevealed = activeQuizAnswered;
                   const isCorrectOption = option.correct;
                   let status: "default" | "correct" | "incorrect" = "default";
                   if (isRevealed) {
@@ -643,8 +730,12 @@ export default function Home() {
                     <button
                       key={option.id}
                       className={`ai-quiz-option ${status !== "default" ? `ai-quiz-option-${status}` : ""}`}
-                      onClick={() => handleQuizSelect(option.id)}
-                      disabled={quizAnswered}
+                      onClick={() =>
+                        practiceMode
+                          ? handlePracticeSelect(option.id)
+                          : handleQuizSelect(option.id)
+                      }
+                      disabled={activeQuizAnswered}
                       aria-pressed={isSelected}
                     >
                       <span className="ai-quiz-option-letter">{option.id.toUpperCase()}</span>
@@ -659,30 +750,30 @@ export default function Home() {
                   );
                 })}
               </div>
-              {quizAnswered && (
-                <div className={`ai-quiz-feedback ${isCorrect ? "ai-quiz-feedback-correct" : "ai-quiz-feedback-incorrect"}`}>
+              {activeQuizAnswered && (
+                <div className={`ai-quiz-feedback ${activeQuizCorrect ? "ai-quiz-feedback-correct" : "ai-quiz-feedback-incorrect"}`}>
                   <span className="ai-quiz-feedback-icon">
-                    {isCorrect ? "✓" : "✗"}
+                    {activeQuizCorrect ? "✓" : "✗"}
                   </span>
                   <span className="ai-quiz-feedback-message">
-                    {isCorrect ? "Correct! That's right." : "Not quite. Here's why:"}
+                    {activeQuizCorrect ? "Correct! That's right." : "Not quite. Here's why:"}
                   </span>
                 </div>
               )}
-              {quizAnswered && (
+              {activeQuizAnswered && (
                 <div className="ai-quiz-explanation">
                   {QUIZ_EXPLANATION}
                 </div>
               )}
-              {quizAnswered && !isCorrect && (
+              {activeQuizAnswered && !activeQuizCorrect && (
                 <button
                   className="ai-btn ai-btn-ghost"
-                  onClick={resetQuiz}
+                  onClick={practiceMode ? resetPractice : resetQuiz}
                 >
                   Try again
                 </button>
               )}
-              {quizPassed && !quizContinued && (
+              {!practiceMode && quizPassed && !quizContinued && (
                 <button
                   className="ai-btn ai-btn-primary"
                   onClick={continueQuiz}
@@ -693,7 +784,7 @@ export default function Home() {
             </section>
           )}
 
-          {currentStep === "badge" && (
+          {viewedStep === "badge" && (
             <section className="ai-card">
               <span className="ai-kicker ai-kicker-purple">
                 <span className="ai-kicker-dot" />
@@ -718,46 +809,65 @@ export default function Home() {
                 <p className="ai-badge-caption">
                   Complete the quiz to unlock your verifiable on-chain learning record.
                 </p>
+                <details className="ai-info ai-phantom-help">
+                  <summary>Using Phantom? Devnet setup help</summary>
+                  <p>
+                    Enable Testnet Mode and select Solana Devnet in Phantom. You
+                    need a little free Devnet SOL to pay the fee; get some at{" "}
+                    <a
+                      href="https://faucet.solana.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      faucet.solana.com
+                    </a>
+                    .
+                  </p>
+                </details>
               </div>
             </section>
           )}
         </main>
       </div>
 
-      {/* Mobile: Floating Ask button + bottom sheet drawer */}
+      {showAskHint && !askOpen && (
+        <div className="ai-fab-hint" role="status">
+          Questions? Ask the AI tutor
+        </div>
+      )}
+
       <button
+        ref={fabRef}
         className="ai-fab-ask"
-        onClick={() => setAskDrawerOpen(true)}
+        onClick={() => (askOpen ? closeAsk() : openAsk())}
         aria-label="Ask AI Tutor"
+        aria-expanded={askOpen}
+        aria-controls="ai-ask-dialog"
       >
-        ?
+        <span className="ai-fab-icon" aria-hidden="true">💬</span>
+        <span className="ai-fab-label">
+          Ask<span className="ai-fab-label-extra"> AI Tutor</span>
+        </span>
       </button>
 
-      {askDrawerOpen && (
-        <div className="ai-ask-drawer-overlay" onClick={() => setAskDrawerOpen(false)}>
-          <div className={`ai-ask-drawer ${askDrawerOpen ? "open" : ""}`}>
-            <div className="ai-ask-drawer-handle" />
-            <button
-              className="ai-ask-drawer-close"
-              onClick={() => setAskDrawerOpen(false)}
-              aria-label="Close"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-              Close
-            </button>
-            <AskPanel
-              question={question}
-              setQuestion={setQuestion}
-              isAsking={isAsking}
-              askError={askError}
-              tutorResponse={tutorResponse}
-              askQuestion={askQuestion}
-              handleSuggestedQuestion={handleSuggestedQuestion}
-            />
-          </div>
+      {askOpen && (
+        <div
+          className="ai-ask-dialog"
+          id="ai-ask-dialog"
+          role="dialog"
+          aria-label="Ask AI Tutor"
+        >
+          <div className="ai-ask-dialog-handle" aria-hidden="true" />
+          <AskPanel
+            question={question}
+            setQuestion={setQuestion}
+            isAsking={isAsking}
+            askError={askError}
+            tutorResponse={tutorResponse}
+            askQuestion={askQuestion}
+            handleSuggestedQuestion={handleSuggestedQuestion}
+            onClose={closeAsk}
+          />
         </div>
       )}
 

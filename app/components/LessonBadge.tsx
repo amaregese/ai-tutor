@@ -2,6 +2,7 @@
 import { Buffer } from "buffer";
 import { useState } from "react";
 import { useWallet } from "./WalletProvider";
+import { LESSON_ID, LESSON_TITLE } from "@/lib/lesson";
 import {
   Connection,
   PublicKey,
@@ -46,6 +47,7 @@ export default function LessonBadge() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
+  const [memoText, setMemoText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cancelled, setCancelled] = useState<string | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
@@ -96,6 +98,9 @@ export default function LessonBadge() {
       const connection = new Connection(DEVNET_RPC_URL, "confirmed");
 
       stage = "CREATE_TRANSACTION";
+      const timestamp = new Date().toISOString();
+      const memo = `AI Tutor | Badge: ${LESSON_TITLE} | lesson: ${LESSON_ID} | completed: ${timestamp}`;
+      setMemoText(memo);
       const memoInstruction = new TransactionInstruction({
         keys: [
           {
@@ -104,10 +109,7 @@ export default function LessonBadge() {
             isWritable: true,
           },
         ],
-        data: Buffer.from(
-          "Badge: Introduction to Artificial Intelligence\nAchievement: Lesson completed",
-          "utf-8"
-        ),
+        data: Buffer.from(memo, "utf-8"),
         programId: MEMO_PROGRAM_ID,
       });
 
@@ -273,6 +275,14 @@ export default function LessonBadge() {
               </div>
               <p className="ai-badge-earned-meta">
                 Your lesson completion is recorded on Solana Devnet.
+              </p>
+              <div className="ai-badge-memo">
+                <span className="ai-badge-memo-label">Memo</span>
+                <code className="ai-badge-memo-value">{memoText}</code>
+              </div>
+              <p className="ai-badge-timestamp-note">
+                Time is from your device; the on-chain block time is the
+                authoritative record.
               </p>
               <div className="ai-badge-sig">
                 <span className="ai-badge-sig-label">Transaction</span>

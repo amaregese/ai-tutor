@@ -79,7 +79,7 @@ Core voice tutor, Groq Q&A, quiz, wallet connect, and memo badge. All commits da
 
 ### Added during the hackathon (Nov 27 - Dec 1)
 
-Work in progress — no commits dated on or after 2026-11-27 yet.
+- On-chain Memo now includes the lesson ID and a completion timestamp (device clock).
 
 ## How this was built
 
@@ -89,7 +89,6 @@ Built with the help of AI coding assistants (ChatGPT, Kilo, and Claude).
 
 - Add more lessons and a lesson picker.
 - Persist quiz attempts and progress across sessions.
-- Include the lesson id and timestamp in the Memo record.
 - Add automated tests and CI.
 
 ## License

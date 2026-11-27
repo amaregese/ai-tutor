@@ -4,7 +4,7 @@
 
 Live demo: https://ai-tutor-nine-jade.vercel.app
 
-`![Built for](https://img.shields.io/badge/Built%20for-Dev3pack%20Global%20Hackathon-9945FF)` Built for the Dev3pack Global Hackathon.
+![Built for Dev3pack Global Hackathon](https://img.shields.io/badge/Built%20for-Dev3pack%20Global%20Hackathon-9945FF)
 
 ## Problem
 
@@ -16,7 +16,7 @@ AI Tutor turns a short lesson into a voice-led experience with an AI tutor for q
 
 ## How it works
 
-1. **Listen** to the lesson with ElevenLabs narration when available, or the bundled recorded narration if live generation is unavailable.
+1. **Listen** to the lesson with live ElevenLabs narration when available, or the bundled recorded narration generated with ElevenLabs if live generation is unavailable.
 2. **Ask the AI tutor** follow-up questions from the floating chat dialog, answered from the lesson content by Groq.
 3. **Pass the quiz** — a single question with immediate feedback and an explanation.
 4. **Connect Phantom** on Solana Devnet.
@@ -24,7 +24,7 @@ AI Tutor turns a short lesson into a voice-led experience with an AI tutor for q
 
 ## Sponsor tools
 
-- **ElevenLabs** — voice narration. The player first posts lesson text to `/api/speak`, which calls the ElevenLabs text-to-speech API and streams back audio. If live generation is unavailable (for example, no API credit), the player falls back to the bundled `public/audio/intro-to-ai.mp3` (Sarah voice) and shows a status message. The API key stays on the server.
+- **ElevenLabs** — voice narration. The player first posts lesson text to `/api/speak`, which calls the ElevenLabs text-to-speech API and streams back audio. If live generation is unavailable (for example, no API credit), the player falls back to the bundled `public/audio/intro-to-ai.mp3` and shows a status message. The API key stays on the server.
 - **Solana** — the wallet is Phantom on Devnet. A shared wallet context keeps the top-bar wallet button and badge card in sync. Earning the badge submits one Memo transaction to the Memo program on Devnet, then shows a link to the transaction on Solana Explorer.
 - **Vercel** — the app is deployed on Vercel (live demo above).
 - **Groq** — powers the "Ask AI Tutor" Q&A. The server route `/api/ask` calls Groq with the lesson content and the student's question; the key stays on the server.
@@ -35,7 +35,7 @@ The on-chain record is a **Solana Memo transaction** — a verifiable learning r
 
 ## Note for judges
 
-A new domain can trigger a Phantom "dApp could be malicious" warning. This app only requests **one Memo transaction on Devnet** and performs **no token transfers**. After inspecting the transaction, you can choose "Proceed anyway".
+Phantom must be set to **Testnet Mode with Solana Devnet** and the wallet needs a little free Devnet SOL (https://faucet.solana.com). If Phantom is left on Mainnet, it can show a "dApp could be malicious" or insufficient-balance warning, because the app builds a Devnet transaction. A brand-new domain can also trigger the warning. This app requests only **one Memo transaction on Devnet** and performs **no token transfers**. After inspecting the transaction you can choose "Proceed anyway".
 
 Source code: https://github.com/amaregese/ai-tutor
 
@@ -63,7 +63,7 @@ Prerequisites: Node.js 20+, npm, and the Phantom browser extension.
 
    The bundled recorded narration works without these keys. Live ElevenLabs narration and the Ask AI Tutor dialog need them.
 4. Start the dev server: `npm run dev`
-5. Get Devnet SOL: in Phantom, switch to Devnet, then use a Devnet faucet or `solana airdrop 2 <your-address> --url devnet`.
+5. Prepare Phantom: enable Testnet Mode in Phantom's settings, select Solana Devnet, and get free Devnet SOL from https://faucet.solana.com (or `solana airdrop 2 <your-address> --url devnet`).
 
 ## Security notes
 
@@ -75,14 +75,15 @@ Prerequisites: Node.js 20+, npm, and the Phantom browser extension.
 
 ### Before the hackathon
 
-Core voice tutor, Groq Q&A, quiz, wallet connect, and memo badge.
+Core voice tutor, Groq Q&A, quiz, wallet connect, and memo badge. All commits dated 2026-11-26 and earlier.
 
 ### Added during the hackathon (Nov 27 - Dec 1)
 
-- Live-first ElevenLabs narration with a bundled recorded fallback and a failure-only “Continue without audio” path.
-- Shared Phantom wallet state across the top bar and badge card, with confirmation before the earned state.
-- Clickable step navigation, quiz practice mode, and a single floating Ask AI Tutor dialog.
-- Responsive layout, AI Tutor logo, and collapsed Phantom Devnet setup help.
+Work in progress — no commits dated on or after 2026-11-27 yet.
+
+## How this was built
+
+Built with the help of AI coding assistants (ChatGPT, Kilo, and Claude).
 
 ## Roadmap
 
